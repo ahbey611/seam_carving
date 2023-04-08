@@ -23,37 +23,13 @@ SEAM_CARVING::SEAM_CARVING(Mat& source, Mat& desinition, int reduce_cols, int re
 		Mat energy;
 		get_energy(energy);
 
-		/*for (int i = 0;i < 10;i++)
-		{
-			for (int j = 0;j < 10;j++)
-			{
-				int x = energy.at<uchar>(i, j);
-				cout << x << '\t';
-			}
-			cout << endl;
-		}*/
-
 		//竖直方向
 		float cost_v = 0;
 		vector<int> seam_v;//纵方向路径
 		vector<vector<Point>> matrix_v;//最小代价矩阵
 		get_min_energy_cost(energy, matrix_v);//计算竖直最小代价矩阵
-
-		/*{
-			for (int j = 0;j < 20;j++)
-				cout << matrix_v[matrix_v.size()-1][j] << '\t';
-			cout << endl;
-		}*/
-
 		get_seam(matrix_v, seam_v, cost_v);//获取最短路径与其代价之和
-		reverse(seam_v.begin(), seam_v.end());
-
-		/*cout << "----"<<endl;
-		for (int i = 0;i < 20;i++)
-			cout << seam_v[i] << '\t';
-		for (int i = seam_v.size() - 1 - 20;i < seam_v.size();i++)
-			cout << seam_v[i] << '\t';
-		cout << "----" << endl << endl;*/
+		reverse(seam_v.begin(), seam_v.end());//由下往上找路径，因此把路径反转
 
 		//水平方向 (相当于把图片旋转，再做竖直方向的计算，代码量减少)
 		float cost_h = 0;
@@ -65,28 +41,9 @@ SEAM_CARVING::SEAM_CARVING(Mat& source, Mat& desinition, int reduce_cols, int re
 		get_seam(matrix_h, seam_h, cost_h);
 		reverse(seam_h.begin(), seam_h.end());
 
-		/*{
-			for (int j = 0;j < 20;j++)
-				cout << matrix_h[matrix_h.size() - 1][j] << '\t';
-			cout << endl;
-		}
-
-		cout << "----"<<endl;
-		for (int i = 0;i < 20;i++)
-			cout << seam_h[i] << '\t';
-
-		for(int i=seam_h.size()-1-20;i<seam_h.size();i++)
-			cout << seam_h[i] << '\t';
-
-		cout << "----" << endl << endl;*/
-
+	
 		//比较两个方向的最小代价，取min(cost_v,cost_h)作为要删除的那条线
-		/*if (num < 100)
-		{
-			cout << "v: " << cost_v << " h: " << cost_h << endl;
-			num++;
-		}*/
-
+		
 		//直线代价<横线代价 -> 删除直线 即图片宽度-1
 		if (cost_v < cost_h)
 		{
@@ -112,11 +69,63 @@ SEAM_CARVING::SEAM_CARVING(Mat& source, Mat& desinition, int reduce_cols, int re
 			count_row++;
 		}
 
-		//break;
+	}
+
+	//删除的行数还不足够时，继续删除
+	while (count_row < reduce_rows)
+	{
+		//获取能量矩阵
+		Mat energy;
+		get_energy(energy);
+
+		//水平方向 (相当于把图片旋转，再做竖直方向的计算，代码量减少)
+		float cost_h = 0;
+		vector<int> seam_h;//横方向路径
+		vector<vector<Point>> matrix_h;//最小代价矩阵
+		transpose(energy, energy);//转置
+		flip(energy, energy, 1);//反转 flipCode>0水平翻转（沿Y轴翻转）(镜像翻转)
+		get_min_energy_cost(energy, matrix_h);//计算竖直最小代价矩阵
+		get_seam(matrix_h, seam_h, cost_h);
+		reverse(seam_h.begin(), seam_h.end());
+
+		Mat cropped(width, height - 1, CV_8UC3);
+		transpose(input, input);
+		flip(input, input, 1);
+		remove_seam(seam_h, cropped);
+		transpose(cropped, cropped);
+		flip(cropped, cropped, 1);
+		cropped.copyTo(input);
+		height--;
+		count_row++;
+	}
+
+	while (count_col < reduce_cols)
+	{
+		//获取能量矩阵
+		Mat energy;
+		get_energy(energy);
+
+		//竖直方向
+		float cost_v = 0;
+		vector<int> seam_v;//纵方向路径
+		vector<vector<Point>> matrix_v;//最小代价矩阵
+		get_min_energy_cost(energy, matrix_v);//计算竖直最小代价矩阵
+		get_seam(matrix_v, seam_v, cost_v);//获取最短路径与其代价之和
+		reverse(seam_v.begin(), seam_v.end());//由下往上找路径，因此把路径反转
+
+		Mat cropped(height, width - 1, CV_8UC3);
+		remove_seam(seam_v, cropped);
+		cropped.copyTo(input);
+		width--;
+		count_col++;
 	}
 
 	//output = input;
 	//input.copyTo(output);
+	transpose(input, input);
+	flip(input, input,1);
+	transpose(input, input);
+	flip(input, input, 1);
 	imwrite("D:/opencv455/code/bin/test_result.jpg", input);
 }
 
@@ -149,6 +158,7 @@ void SEAM_CARVING::get_energy(Mat& energy)
 	namedWindow("grad", CV_WINDOW_NORMAL);
 	imshow("grad", energy);
 	waitKey(1);
+
 	//imshow("x_gradiant.", x_gradiant);
 	//imshow("y_gradiant", y_gradiant);
 	//waitKey(3000);
@@ -174,12 +184,13 @@ void SEAM_CARVING::get_energy(Mat& energy)
 			
 		}
 	}
-
-	//imshow("xy", xy_gradiant);
-	//waitKey(3000);
+	energy.convertTo(energy, CV_8UC1);
+	namedWindow("xy", CV_WINDOW_NORMAL);
+	imshow("xy", energy);
+	waitKey(1);
 	//imwrite("xy_gradiant.jpg", energy);
 	
-	energy.convertTo(energy, CV_8UC1);
+	
 	//imwrite("converted_energy.jpg", energy);
 
 #endif
@@ -277,27 +288,14 @@ void SEAM_CARVING::get_seam(vector<vector<Point>>& matrix, vector<int>& seam, fl
 		}
 	}
 
-	//cout << "(" << i << "," << pos << ") = " << min << '\n';
-	//if (num < 100)
-	//	cout << "val:"<<matrix[i][pos].val << endl;
-
-
 	cost = 0;
 	seam.push_back(pos);
 	cost += matrix[i][pos].val;
-	int c = 0;
+
 	//回溯找回最短路径
 	while (i > 0)
 	{
-		//if (c < 20)
-		//	cout << matrix[i][pos].path << " -1 + " << pos << " = ";
 		pos = pos + matrix[i][pos].path - 1;
-		
-		/*if (c < 20)
-		{
-			cout << pos << endl;
-			c++;
-		}*/
 		seam.push_back(pos + matrix[i][pos].path - 1);
 
 		cost += matrix[i][pos].val;
@@ -310,7 +308,6 @@ void SEAM_CARVING::remove_seam(vector<int>& seam, Mat& des)
 {
 	//将最短路径标记为红色
 	Mat temp = input.clone();
-
 
 	for (int i = 0;i < seam.size();i++)
 	{
@@ -329,18 +326,9 @@ void SEAM_CARVING::remove_seam(vector<int>& seam, Mat& des)
 		int j = seam[i];
 
 		for (int k = 0;k < j;k++)
-		{	
 			des.at<Vec3b>(i, k) = input.at<Vec3b>(i, k);
-		}
-
+		
 		for (j;j < input.cols - 1;j++)
-		{
 			des.at<Vec3b>(i, j) = input.at<Vec3b>(i, j + 1);
-		}
-
 	}
-	//namedWindow("cropped", CV_WINDOW_NORMAL);
-	//imshow("cropped", des);
-	//imwrite("D:/opencv455/code/bin/test_result.jpg", des);
-	//waitKey(1);
 }
