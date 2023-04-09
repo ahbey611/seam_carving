@@ -11,7 +11,7 @@ using namespace cv;
 
 class SEAM_CARVING
 {
-	
+
 private:
 
 	struct Point {
@@ -21,7 +21,6 @@ private:
 		Point(float v, int p) :val(v), path(p) {}
 		friend ostream& operator<<(ostream& out, const Point& p)
 		{
-			//out << p.path;
 			out << p.val;
 			return out;
 		}
@@ -31,14 +30,14 @@ private:
 	int reduce_rows;
 	Mat input;
 	Mat output;
-	int num = 0;
-	
 
 public:
+
 	SEAM_CARVING();
 	SEAM_CARVING(Mat& input, Mat& output, int reduce_cols, int reduce_rows);
 	void get_energy(Mat& energy);
 	void get_min_energy_cost(Mat& energy, vector<vector<Point>>& matrix);
 	void get_seam(vector<vector<Point>>& matrix, vector<int>& seam, float& cost);
 	void remove_seam(vector<int>& seam, Mat& des);
+
 };

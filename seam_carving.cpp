@@ -16,7 +16,7 @@ SEAM_CARVING::SEAM_CARVING(Mat& source, Mat& desinition, int reduce_cols, int re
 	int width = source.cols;
 	int height = source.rows;
 
-	//优先删除两个方向中代价最小的
+	//优先删除两个方向中能量最小的路径
 	while (count_row < reduce_rows && count_col < reduce_cols)
 	{
 		//获取能量矩阵
@@ -31,7 +31,8 @@ SEAM_CARVING::SEAM_CARVING(Mat& source, Mat& desinition, int reduce_cols, int re
 		get_seam(matrix_v, seam_v, cost_v);//获取最短路径与其代价之和
 		reverse(seam_v.begin(), seam_v.end());//由下往上找路径，因此把路径反转
 
-		//水平方向 (相当于把图片旋转，再做竖直方向的计算，代码量减少)
+
+	//水平方向 (相当于把图片旋转，再做竖直方向的计算，代码量减少)
 		float cost_h = 0;
 		vector<int> seam_h;//横方向路径
 		vector<vector<Point>> matrix_h;//最小代价矩阵
@@ -41,9 +42,9 @@ SEAM_CARVING::SEAM_CARVING(Mat& source, Mat& desinition, int reduce_cols, int re
 		get_seam(matrix_h, seam_h, cost_h);
 		reverse(seam_h.begin(), seam_h.end());
 
-	
+
 		//比较两个方向的最小代价，取min(cost_v,cost_h)作为要删除的那条线
-		
+
 		//直线代价<横线代价 -> 删除直线 即图片宽度-1
 		if (cost_v < cost_h)
 		{
@@ -57,7 +58,6 @@ SEAM_CARVING::SEAM_CARVING(Mat& source, Mat& desinition, int reduce_cols, int re
 		//直线代价>=横线代价 -> 删除横线 即图片高度-1
 		else
 		{
-			//todo
 			Mat cropped(width, height - 1, CV_8UC3);
 			transpose(input, input);
 			flip(input, input, 1);
@@ -121,12 +121,15 @@ SEAM_CARVING::SEAM_CARVING(Mat& source, Mat& desinition, int reduce_cols, int re
 	}
 
 	//output = input;
-	//input.copyTo(output);
-	transpose(input, input);
+	input.copyTo(output);
+
+	/*transpose(input, input);
 	flip(input, input,1);
 	transpose(input, input);
-	flip(input, input, 1);
-	imwrite("D:/opencv455/code/bin/test_result.jpg", input);
+	flip(input, input, 1);*/
+	imwrite("output.jpg", input);
+	imshow("output", output);
+	waitKey(1000);
 }
 
 //求出能量矩阵(Sobel梯度)
@@ -135,8 +138,6 @@ void SEAM_CARVING::get_energy(Mat& energy)
 	//将图片转换为灰色
 	Mat gray;
 	cvtColor(input, gray, COLOR_BGR2GRAY);
-	//imshow("GeayImage", gray);
-	//waitKey(1000);
 
 	Mat x_gradiant;//x轴的梯度
 	Mat y_gradiant;//y轴的梯度
@@ -152,6 +153,7 @@ void SEAM_CARVING::get_energy(Mat& energy)
 	convertScaleAbs(x_gradiant, abs_x_gradiant);
 	convertScaleAbs(y_gradiant, abs_y_gradiant);
 
+	//两个梯度进行相加/整合
 	addWeighted(abs_x_gradiant, 0.5, abs_y_gradiant, 0.5, 0, energy);
 	energy.convertTo(energy, CV_8UC1);
 
@@ -223,7 +225,7 @@ void SEAM_CARVING::get_min_energy_cost(Mat& energy, vector<vector<Point>>& matri
 				if (j == 0)
 				{
 					float val = energy.at<uchar>(i, j) + min(energy.at<uchar>(i - 1, j), energy.at<uchar>(i - 1, j + 1));
-					int path = (energy.at<uchar>(i - 1, j) < energy.at<uchar>(i - 1, j + 1)) ? 0 : 1;
+					int path = (energy.at<uchar>(i - 1, j) < energy.at<uchar>(i - 1, j + 1)) ? -1 : 0;
 					temp.push_back(Point(val, path+1));
 				}
 
@@ -231,7 +233,7 @@ void SEAM_CARVING::get_min_energy_cost(Mat& energy, vector<vector<Point>>& matri
 				else if (j == col - 1)
 				{
 					float val = energy.at<uchar>(i, j) + min(energy.at<uchar>(i - 1, j - 1), energy.at<uchar>(i - 1, j));
-					int path = (energy.at<uchar>(i - 1, j - 1) < energy.at<uchar>(i - 1, j)) ? 0 : 1;
+					int path = (energy.at<uchar>(i - 1, j - 1) < energy.at<uchar>(i - 1, j)) ? -1 : 0;
 					temp.push_back(Point(val, path));
 				}
 
@@ -245,6 +247,8 @@ void SEAM_CARVING::get_min_energy_cost(Mat& energy, vector<vector<Point>>& matri
 					float val = energy.at<uchar>(i, j) + min_energy;
 
 					int path = -2;
+
+#if 0
 					float abc[3] = { a,b,c };
 					float min = INT_MAX;
 					for (int i = 0;i < 3;i++)
@@ -252,16 +256,17 @@ void SEAM_CARVING::get_min_energy_cost(Mat& energy, vector<vector<Point>>& matri
 						if (abc[i] < min)
 						{
 							min = abc[i];
-							path = i;
+							path = i-1;
 						}
 					}
-#if 0
+#endif
+#if 1
 					if (min_energy == energy.at<uchar>(i - 1, j - 1))
-						path = 0;
+						path = -1;
 					if (min_energy == energy.at<uchar>(i - 1, j))
-						path = 1;
+						path = 0;
 					if (min_energy == energy.at<uchar>(i - 1, j + 1))
-						path = 2;
+						path = 1;
 #endif
 					temp.push_back(Point(val, path));
 				}
@@ -272,6 +277,7 @@ void SEAM_CARVING::get_min_energy_cost(Mat& energy, vector<vector<Point>>& matri
 	}
 }
 
+//找出最小能量路径
 void SEAM_CARVING::get_seam(vector<vector<Point>>& matrix, vector<int>& seam, float& cost)
 {
 	//先求出矩阵最后一行中最小的元素
@@ -295,39 +301,39 @@ void SEAM_CARVING::get_seam(vector<vector<Point>>& matrix, vector<int>& seam, fl
 	//回溯找回最短路径
 	while (i > 0)
 	{
-		pos = pos + matrix[i][pos].path - 1;
-		seam.push_back(pos + matrix[i][pos].path - 1);
-
+		pos = pos + matrix[i][pos].path;
+		seam.push_back(pos + matrix[i][pos].path);
 		cost += matrix[i][pos].val;
 		i--;
 	}
 
 }
 
+//在rgb图像上进行删除最小能量像素路径
 void SEAM_CARVING::remove_seam(vector<int>& seam, Mat& des)
 {
 	//将最短路径标记为红色
 	Mat temp = input.clone();
-
 	for (int i = 0;i < seam.size();i++)
 	{
 		int j = seam[i];
 		Vec3b values(0, 0, 255);
 		temp.at<Vec3b>(i, j) = values;
 	}
+
 	namedWindow("seam", CV_WINDOW_NORMAL);
 	imshow("seam", temp);
 	waitKey(1);
 
-
-	//路径后的像素向左移位一位，路径前的保持不变
+	//进行移位操作
 	for (int i = 0;i < seam.size();i++)
 	{
 		int j = seam[i];
-
+		//路径前的保持不变
 		for (int k = 0;k < j;k++)
 			des.at<Vec3b>(i, k) = input.at<Vec3b>(i, k);
-		
+
+		//路径后的像素向左移位一位
 		for (j;j < input.cols - 1;j++)
 			des.at<Vec3b>(i, j) = input.at<Vec3b>(i, j + 1);
 	}
